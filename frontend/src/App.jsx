@@ -405,8 +405,17 @@ const Layout = ({ children, type = 'admin' }) => {
 
             <div className="main-wrapper">
                 <header className="top-bar">
-                    <div style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                        {isMember ? 'MEMBER DASHBOARD' : 'ADMINISTRATION CENTER'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button 
+                            className="mobile-menu-btn" 
+                            onClick={() => setCollapsed(!collapsed)}
+                            style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <div style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                            {isMember ? 'MEMBER DASHBOARD' : 'ADMINISTRATION CENTER'}
+                        </div>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <NotificationBell type={isMember ? 'member' : 'admin'} />
