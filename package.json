@@ -8,8 +8,8 @@
   "scripts": {
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "build": "cd frontend && npm install && npx vite build",
-    "start": "cd backend && node index.js",
-    "postinstall": "cd backend && npm install"
+    "start": "cd backend && npm rebuild sqlite3 --build-from-source && PORT=$PORT node index.js",
+    "postinstall": "cd backend && npm install --build-from-source"
   },
   "devDependencies": {
     "vite": "^8.0.1"
