@@ -245,7 +245,16 @@ const Layout = ({ children, type = 'admin' }) => {
     const navItem = (to, label, Icon, exact=false, customIconName=null) => {
         const FinalIcon = customIconName ? getIcon(customIconName, Icon) : Icon;
         return (
-            <NavLink to={to} end={exact} className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
+            <NavLink 
+                to={to} 
+                end={exact} 
+                className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}
+                onClick={() => {
+                    if (window.innerWidth <= 768) {
+                        setCollapsed(true);
+                    }
+                }}
+            >
                 <FinalIcon size={20} /> <span>{label}</span>
             </NavLink>
         );
@@ -259,6 +268,13 @@ const Layout = ({ children, type = 'admin' }) => {
 
     return (
         <div className={`app-layout ${isMember ? 'member-theme' : ''}`}>
+            {/* Mobile Overlay */}
+            {!collapsed && (
+                <div 
+                    className="mobile-sidebar-overlay" 
+                    onClick={() => setCollapsed(true)}
+                />
+            )}
             <aside 
                 className={`sidebar ${isVisuallyCollapsed ? 'sidebar-collapsed' : ''}`}
                 onMouseEnter={() => setIsHovered(true)}
