@@ -1,0 +1,10 @@
+- [x] Implement Member Authentication (POST /api/member/login)  
+- [x] Seed default PINs for existing members  
+- [x] Implement Member Profile (GET /api/member/me)  
+- [x] Implement Financial Summary (GET /api/member/me/balance)  
+- [x] Implement Contribution History (GET /api/member/me/history)  
+- [x] Implement Penalty Tracking (GET /api/member/me/penalties)  
+- [x] Implement Loan Applications (GET /api/member/me/applications)  
+- [x] Implement Savings Analytics (GET /api/member/me/savings-trend)  
+- [/] Implement PIN Change functionality  
+- [ ] Verify Member Portal Access 

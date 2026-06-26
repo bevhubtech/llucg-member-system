@@ -1,0 +1,73 @@
+# ---------------------------------------------------------------
+# 1️⃣ Node / npm – things that can be rebuilt
+# ---------------------------------------------------------------
+node_modules/
+dist/
+
+# ---------------------------------------------------------------
+# 2️⃣ Local environment files – NEVER commit
+# ---------------------------------------------------------------
+.env
+.env.*
+*.local
+
+# ---------------------------------------------------------------
+# 3️⃣ Vercel / Render generated folders
+# ---------------------------------------------------------------
+.vercel/
+.render/
+
+# ---------------------------------------------------------------
+# 4️⃣ Log files, temporary files, test artefacts
+# ---------------------------------------------------------------
+*.log          # any .log file
+*.tmp          # any .tmp file
+*.txt          # any .txt file (covers backend_log.txt, # Node  npm.txt, etc.)
+*.pdf          # any .pdf file (covers test_upload.pdf, test_vault_doc.pdf)
+*.bat          # any .bat file (covers test_production.bat, start_system.bat, etc.)
+*.ps1          # any PowerShell script (covers fix_colors.ps1)
+*.bat
+
+# directories that should never be committed
+tmp/
+scratch/
+logs/
+
+frontend/*.log
+backend/*.log
+backend/*.txt
+
+# ---------------------------------------------------------------
+# 5️⃣ Database files – local only
+# ---------------------------------------------------------------
+*.db
+*.sqlite
+database.sqlite
+
+# ---------------------------------------------------------------
+# 6️⃣ Specific utility / test scripts you do NOT want in the repo
+# ---------------------------------------------------------------
+audit_members.js
+check_*.js
+find_pw.js
+live_test.js
+start_system.bat
+test_*.js
+verify_*.js          # catches verify_financials.js and any similar script
+ticket_notif_test.js
+nginx_template.conf
+# ---------------------------------------------------------------
+# Additional file types you want to keep out of the repo
+# ---------------------------------------------------------------
+*.ps1          # PowerShell scripts (e.g., fix_colors.ps1)
+*.txt          # any plain‑text file (covers member_all.txt, etc.)
+*.pdf          # any PDF document (covers test_upload.pdf, test_vault_doc.pdf)
+verify_*.js    # any verification script (covers verify_financials.js)
+# Explicit ignores for leftover test assets
+frontend/src/pages/fix_colors.ps1
+frontend/src/pages/member_all.txt
+frontend/src/pages/member_search.txt
+frontend/src/pages/member_search_utf8.txt
+test_upload.pdf
+test_vault_doc.pdf
+verify_financials.js

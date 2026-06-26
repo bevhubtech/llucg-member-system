@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: llucg-system
+    env: node
+    plan: free # Can be changed to 'starter' or 'pro' later
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MEMBER_JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        value: 123456
+      # Add other keys like AFRICA_TALKING_USERNAME, MPESA_CONSUMER_KEY etc in the Render Dashboard manually
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1

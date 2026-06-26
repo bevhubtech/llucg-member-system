@@ -1,0 +1,39 @@
+{
+  "name": "LLUCG Portal",
+  "short_name": "Portal",
+  "description": "Premium member portal and management dashboard for LLUCG SACCO.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Member Login",
+      "url": "/member/login",
+      "icons": [{ "src": "/favicon.png", "sizes": "144x144" }]
+    },
+    {
+      "name": "Admin Control",
+      "url": "/login",
+      "icons": [{ "src": "/favicon.png", "sizes": "144x144" }]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "ignore": [
+    "*.sqlite",
+    "*.sqlite-journal",
+    "*.db",
+    "uploads/*",
+    "node_modules",
+    "*.test.js",
+    "logs/*"
+  ],
+  "watch": ["."],
+  "ext": "js,json"
+}
