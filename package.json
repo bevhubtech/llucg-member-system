@@ -7,7 +7,7 @@
   },
   "scripts": {
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "build": "cd frontend && npm install && npx vite build",
+    "build": "cd backend && npm install && cd ../frontend && npm install && npx vite build",
     "start": "cd backend && node index.js"
   },
   "devDependencies": {
