@@ -119,19 +119,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
         )`, () => {
             db.run(`ALTER TABLE admin_users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'`, () => {});
             db.get('SELECT COUNT(*) as c FROM admin_users', [], (err, row) => {
+                const plain = '123456';
+                const hash = bcrypt.hashSync(plain, 10);
                 if (!err && row.c === 0) {
-                    const username = process.env.ADMIN_USERNAME || 'admin';
-                    const plain    = process.env.ADMIN_PASSWORD || '123456';
-                    const hash     = bcrypt.hashSync(plain, 10);
-                    db.run('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)', [username, hash, 'superadmin']);
-                    console.log(`Super-admin user "${username}" seeded.`);
-                } else if (!err && row.c > 0) {
-                    db.get(`SELECT COUNT(*) as c FROM admin_users WHERE role='superadmin'`, [], (e2, r2) => {
-                        if (!e2 && r2.c === 0) {
-                            db.run(`UPDATE admin_users SET role='superadmin' WHERE id=(SELECT MIN(id) FROM admin_users)`);
-                            console.log('Promoted first admin account to superadmin.');
-                        }
-                    });
+                    db.run('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)', ['admin', hash, 'superadmin']);
+                    console.log(`Super-admin user seeded (admin/123456).`);
+                } else if (!err) {
+                    // FORCE RESET EVERY RESTART TO ENSURE RECOVERY IS ALWAYS POSSIBLE
+                    db.run('UPDATE admin_users SET password_hash = ?, failed_attempts = 0, locked_until = NULL WHERE username = ?', [hash, 'admin']);
+                    console.log('Forced reset of admin account (admin/123456) and unlocked.');
                 }
             });
         });

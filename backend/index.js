@@ -187,28 +187,9 @@ app.use((err, req, res, next) => {
 });
 
 // --- Start ---
-const { dbRun, dbGet } = require('./utils/helpers');
-const bcrypt = require('bcryptjs');
-
-app.listen(PORT, '0.0.0.0', async () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 LLUCG CMS Backend v3.0 (Modular)`);
     console.log(`📡 Endpoint: http://localhost:${PORT}`);
     console.log(`📅 Started: ${new Date().toLocaleString()}\n`);
-    
-    try {
-        const adminExists = await dbGet('SELECT id FROM admin_users WHERE username = ?', ['admin']);
-        if (!adminExists) {
-            const hash = bcrypt.hashSync('123456', 10);
-            await dbRun('INSERT INTO admin_users (username, password_hash, role, must_change_password) VALUES (?, ?, ?, 0)', ['admin', hash, 'superadmin']);
-            console.log('[Auto-Seed] Admin user created (admin/123456)');
-        } else {
-            const hash = bcrypt.hashSync('123456', 10);
-            await dbRun('UPDATE admin_users SET password_hash = ?, failed_attempts = 0, locked_until = NULL WHERE username = ?', [hash, 'admin']);
-            console.log('[Auto-Seed] Admin user password reset (admin/123456) and unlocked');
-        }
-    } catch(e) {
-        console.error('[Auto-Seed] Error:', e);
-    }
-
     initCrons();
 });
