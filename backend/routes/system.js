@@ -168,6 +168,28 @@ router.get('/member-resets', authRequired, async (req, res) => {
                 });
             }
         }
+        
+        // Fetch Admin MFA/Resets
+        const admins = await dbAll(
+            `SELECT id, username as name, phone, email, mfa_token FROM admin_users WHERE mfa_token IS NOT NULL`
+        );
+        for (const a of admins) {
+            const [prefix, otp, timestamp] = (a.mfa_token || '').split(':');
+            if (!timestamp) continue;
+            const expiryTime = parseInt(timestamp) + (5 * 60 * 1000);
+            if (Date.now() < expiryTime) {
+                codes.push({
+                    id: `admin_${a.id}_${timestamp}`,
+                    member_id: `Admin: ${a.name}`,
+                    name: `[ADMIN] ${a.name}`,
+                    phone: a.phone || a.email || 'N/A',
+                    code: otp,
+                    type: prefix === 'RESET' ? 'Admin Password Reset' : 'Admin Login Security',
+                    expiry: new Date(expiryTime).toISOString()
+                });
+            }
+        }
+
         res.json({ success: true, resets: codes });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
