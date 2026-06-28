@@ -27,6 +27,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`ALTER TABLE members ADD COLUMN registration_fee_paid INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE members ADD COLUMN password_hash TEXT`, () => {});
         db.run(`ALTER TABLE members ADD COLUMN email TEXT`, () => {});
+        db.run(`ALTER TABLE members ADD COLUMN lifecycle_phase_override TEXT`, () => {});
         // Add column first without UNIQUE constraint to allow backfill
         db.run(`ALTER TABLE members ADD COLUMN membershipNumber TEXT`, () => {
             // Check if we need to backfill
