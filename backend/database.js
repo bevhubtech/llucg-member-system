@@ -201,6 +201,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     db.run(`UPDATE settings SET value = ? WHERE key = ?`, [value, key]);
                 }
             }
+            db.run(`ALTER TABLE settings ADD COLUMN title TEXT`, () => {});
         });
 
         // Loans
