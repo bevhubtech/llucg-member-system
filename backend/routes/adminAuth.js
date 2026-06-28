@@ -414,7 +414,7 @@ router.put('/users/:id', authRequired, async (req, res) => {
     if (!username) return res.status(400).json({ error: 'Username is required.' });
 
     try {
-        await dbRun('UPDATE admin_users SET username = ?, role = ?, phone = ?, email = ? WHERE id = ?', [username, role, phone, email, req.params.id]);
+        await dbRun('UPDATE admin_users SET username = ?, role = ?, title = ?, phone = ?, email = ? WHERE id = ?', [username, role, title || '', phone, email, req.params.id]);
         logActivity('Admin Updated', 'Admin', req.params.id, `Updated admin details for: ${username}`, req.admin.username);
         res.json({ message: 'Admin updated successfully.' });
     } catch (err) { 

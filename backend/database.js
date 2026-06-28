@@ -134,6 +134,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`ALTER TABLE admin_users ADD COLUMN failed_attempts INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE admin_users ADD COLUMN locked_until TEXT`, () => {});
         db.run(`ALTER TABLE admin_users ADD COLUMN last_ip TEXT`, () => {});
+        db.run(`ALTER TABLE admin_users ADD COLUMN title TEXT`, () => {});
 
         // SMS log
         db.run(`CREATE TABLE IF NOT EXISTS sms_log (
