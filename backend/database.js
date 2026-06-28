@@ -164,14 +164,16 @@ const db = new sqlite3.Database(dbPath, (err) => {
         // Settings (key-value store)
         db.run(`CREATE TABLE IF NOT EXISTS settings (
             key   TEXT PRIMARY KEY,
-            value TEXT
+            value TEXT,
+            title TEXT
         )`, () => {
             const defaults = {
+                title: '',
                 group_name:               'LIFE-LONG UNITY CAPITAL GROUP',
                 organization_name:        'LIFE-LONG UNITY CAPITAL GROUP',
                 organization_tagline:     'Unity in Prosperity',
                 currency:                 'KES',
-                contribution_target:      '5000',
+                contribution_target:      '1100',
                 auto_penalty_enabled:     'false',
                 auto_penalty_amount:      '200',
                 auto_penalty_days_overdue:'7',
@@ -188,11 +190,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 theme_light_mode:          'false',
                 allow_user_theme_toggle:   'false'
             };
-            for (const [key, value] of Object.entries(defaults)) {
+            const defaultsWithTitle = { title: '', ...defaults };
+            for (const [key, value] of Object.entries(defaultsWithTitle)) {
                 db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`, [key, value]);
                 // Also update existing if they are still defaults
                 if (key === 'group_name' || key === 'organization_name' || key === 'organization_tagline') {
                     db.run(`UPDATE settings SET value = ? WHERE key = ? AND (value = 'My Chama' OR value = 'CHAMA MANAGEMENT SYSTEM' OR value IS NULL)`, [value, key]);
+                } else if (key === 'contribution_target') {
+                    db.run(`UPDATE settings SET value = ? WHERE key = ?`, [value, key]);
                 }
             }
         });

@@ -9,9 +9,16 @@ const dbRun = (sql, params = []) => new Promise((res, rej) => db.run(sql, params
 async function migrate() {
     console.log('--- Migrating Settings ---');
     try {
+        // Add title column if missing
+        await dbRun('ALTER TABLE settings ADD COLUMN title TEXT');
+        // Ensure defaults for contribution and welfare
+        await dbRun("INSERT OR IGNORE INTO settings (key, value) VALUES ('contribution_target', '1000')");
+        await dbRun("INSERT OR IGNORE INTO settings (key, value) VALUES ('welfare_contribution_amount', '100')");
+        // Existing penalty defaults
         await dbRun("INSERT OR IGNORE INTO settings (key, value) VALUES ('penalty_grace_period', '7')");
         await dbRun("INSERT OR IGNORE INTO settings (key, value) VALUES ('penalty_sms_enabled', 'true')");
-        console.log('✓ Successfully ensured penalty_grace_period and penalty_sms_enabled settings.');
+        console.log('✓ Migration completed: title column added and defaults set.');
+        
     } catch (e) { console.error('Migration failed:', e.message); }
     db.close();
 }

@@ -359,7 +359,7 @@ router.post('/change-password', [
 
 router.get('/me', authRequired, async (req, res) => {
     try {
-        const admin = await dbGet('SELECT id, username, role, title, phone, email, totp_enabled FROM admin_users WHERE id = ?', [req.admin.id]);
+        const admin = await dbGet('SELECT id, username, role, phone, email, totp_enabled FROM admin_users WHERE id = ?', [req.admin.id]);
         if (!admin) return res.status(404).json({ error: 'Admin not found.' });
         res.json(admin);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -378,7 +378,7 @@ router.put('/me', authRequired, async (req, res) => {
 
 router.get('/users', authRequired, async (req, res) => {
     try {
-        const rows = await dbAll('SELECT id, username, role, title, phone, email, totp_enabled FROM admin_users ORDER BY username ASC');
+        const rows = await dbAll('SELECT id, username, role, phone, email, totp_enabled FROM admin_users ORDER BY username ASC');
         res.json({ users: rows });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -414,7 +414,7 @@ router.put('/users/:id', authRequired, async (req, res) => {
     if (!username) return res.status(400).json({ error: 'Username is required.' });
 
     try {
-        await dbRun('UPDATE admin_users SET username = ?, role = ?, title = ?, phone = ?, email = ? WHERE id = ?', [username, role, title, phone, email, req.params.id]);
+        await dbRun('UPDATE admin_users SET username = ?, role = ?, phone = ?, email = ? WHERE id = ?', [username, role, phone, email, req.params.id]);
         logActivity('Admin Updated', 'Admin', req.params.id, `Updated admin details for: ${username}`, req.admin.username);
         res.json({ message: 'Admin updated successfully.' });
     } catch (err) { 
