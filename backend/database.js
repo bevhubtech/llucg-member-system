@@ -41,6 +41,31 @@ const processQueue = () => {
     });
 };
 
+const keyMap = {
+    memberid: 'memberId', paymentdate: 'paymentDate', joindate: 'joinDate', nextduedate: 'nextDueDate',
+    wallettype: 'walletType', referencenumber: 'referenceNumber', paymentmethod: 'paymentMethod',
+    idnumber: 'idNumber', guarantorname: 'guarantorName', paidstatus: 'paidStatus', totalamount: 'totalAmount',
+    lastrun: 'lastRun', totallogs: 'totalLogs', systemliquidity: 'systemLiquidity', registrationfees: 'registrationFees',
+    welfarefund: 'welfareFund', penaltiescollected: 'penaltiesCollected', totaldistributed: 'totalDistributed',
+    totalbalance: 'totalBalance', monthlytrends: 'monthlyTrends', regfeescollected: 'regFeesCollected',
+    saccototal: 'saccoTotal', personaltotal: 'personalTotal', totalrepaid: 'totalRepaid', activedebt: 'activeDebt',
+    totalsavings: 'totalSavings', membername: 'memberName', memberphone: 'memberPhone', createdat: 'createdAt',
+    updatedat: 'updatedAt', totalinterest: 'totalInterest', totalrepaidoverall: 'totalRepaidOverall',
+    penaltyid: 'penaltyId', issueddate: 'issuedDate', duedate: 'dueDate', paiddate: 'paidDate',
+    pledgefee: 'pledgeFee', startat: 'startAt', changedat: 'changedAt', lastactivity: 'lastActivity',
+    activeloans: 'activeLoans', pendingwithdrawals: 'pendingWithdrawals', membershipnumber: 'membershipNumber',
+    failedattempts: 'failedAttempts', documenttype: 'documentType', uploaddate: 'uploadDate', uploadedby: 'uploadedBy'
+};
+function restoreCamelCase(rows) {
+    if (!rows) return rows;
+    if (Array.isArray(rows)) return rows.map(r => restoreCamelCase(r));
+    if (typeof rows === 'object') {
+        const newObj = {};
+        for (const key in rows) { newObj[keyMap[key] || key] = rows[key]; }
+        return newObj;
+    }
+    return rows;
+}
 const executeQuery = (text, values, isInsert, fakeCallback) => {
     pool.query(text, values, function(err, res) {
         if (err) {
@@ -59,7 +84,7 @@ const executeQuery = (text, values, isInsert, fakeCallback) => {
                  changes: res.rowCount
              };
         }
-        if (fakeCallback) fakeCallback(null, fakeThis || res.rows);
+        if (fakeCallback) fakeCallback(null, fakeThis || restoreCamelCase(res.rows));
     });
 };
 
