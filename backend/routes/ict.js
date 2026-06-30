@@ -661,10 +661,17 @@ router.get('/health-check', async (req, res) => {
         }
     } catch (e) { r.status = 'fail'; r.message = e.message; }
     results.push(r);
-    r = check('DB File', 'SQLite file exists and is readable');
+    r = check('DB File', 'PostgreSQL connection pool health check');
     try {
-        const stat = fs.statSync(dbPath);
-        r.message = `DB reachable — ${(stat.size / 1024).toFixed(0)} KB`;
+        const t0 = Date.now();
+        const { Pool } = require('pg');
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+        const client = await pool.connect();
+        await client.query('SELECT 1');
+        client.release();
+        await pool.end();
+        r.ms = Date.now() - t0;
+        r.message = `PostgreSQL connection healthy in ${r.ms}ms`;
     } catch (e) { r.status = 'fail'; r.message = e.message; }
     results.push(r);
 
@@ -1011,7 +1018,6 @@ router.get('/unified-summary', async (req, res) => {
     try {
         // Gathering stats for the Command Center in one pass
         const dbPath = path.join(__dirname, '..', 'database.sqlite');
-        const dbStat = fs.statSync(dbPath);
         const mem = process.memoryUsage();
         
         const [auditCount, mfa, locks, sessions, backUps] = await Promise.all([
@@ -1027,7 +1033,7 @@ router.get('/unified-summary', async (req, res) => {
         res.json({
             health: {
                 uptime: Math.round(process.uptime()),
-                dbSize: (dbStat.size / 1024 / 1024).toFixed(2) + ' MB',
+                dbSize: 'PostgreSQL (cloud)',
                 totalLogs: auditCount.c,
                 memoryPct: Math.round((mem.heapUsed / mem.heapTotal) * 100),
                 environment: process.env.NODE_ENV || 'production',
