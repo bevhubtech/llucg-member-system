@@ -1,63 +1,73 @@
 const express = require('express');
 const router = express.Router();
-const { dbAll, dbGet, dbRun, getSystemSettings } = require('../utils/helpers');
-const { authRequired, ictRequired, financeRequired } = require('../middleware/auth');
-const { logActivity } = require('../utils/logger');
+const { dbAll, dbGet, getSystemSettings } = require('../utils/helpers');
+const { authRequired } = require('../middleware/auth');
 
-/**
- * Risk Scoring Logic (The "Antigravity Trust Index")
- * 
- * Factors:
- * 1. Contribution Consistency (40%): How many target contributions were met?
- * 2. Repayment Punctuality (30%): Days overdue for loan repayments.
- * 3. Membership Seniority (20%): Length of time in the system.
- * 4. Penalty History (10%): Count of behavioral penalties.
- */
+async function getBulkRiskData(memberIds) {
+    if (!memberIds || memberIds.length === 0) return {};
+    
+    // Convert array to comma separated string for IN clause
+    const placeholders = memberIds.map(() => '?').join(',');
+    
+    const [payments, loans, penalties, repayments] = await Promise.all([
+        dbAll(`SELECT memberId, SUM(amount) as total FROM payments WHERE status = 'completed' AND walletType IN ('Savings', 'SACCO Savings', 'Share Capital') AND memberId IN (${placeholders}) GROUP BY memberId`, memberIds),
+        dbAll(`SELECT id, memberId, amount, dueDate FROM loans WHERE memberId IN (${placeholders})`, memberIds),
+        dbAll(`SELECT memberId, COUNT(*) as c FROM penalties WHERE memberId IN (${placeholders}) GROUP BY memberId`, memberIds),
+        dbAll(`SELECT r.loanId, r.paidDate FROM loan_repayments r JOIN loans l ON r.loanId = l.id WHERE l.memberId IN (${placeholders})`, memberIds)
+    ]);
 
-async function calculateMemberScore(memberId) {
-    const member = await dbGet('SELECT * FROM members WHERE id = ?', [memberId]);
-    if (!member) return 0;
+    const data = {};
+    for (const id of memberIds) {
+        data[id] = { totalPaid: 0, loans: [], penaltyCount: 0 };
+    }
 
-    const settings = await getSystemSettings();
-    const target = parseFloat(settings.contribution_target || 1000);
+    payments.forEach(p => { if(data[p.memberId]) data[p.memberId].totalPaid = p.total; });
+    penalties.forEach(p => { if(data[p.memberId]) data[p.memberId].penaltyCount = p.c; });
+    
+    // Map repayments by loanId
+    const repsByLoan = {};
+    repayments.forEach(r => {
+        if (!repsByLoan[r.loanId]) repsByLoan[r.loanId] = [];
+        repsByLoan[r.loanId].push(r);
+    });
+
+    loans.forEach(l => {
+        l.repayments = repsByLoan[l.id] || [];
+        if(data[l.memberId]) data[l.memberId].loans.push(l);
+    });
+
+    return data;
+}
+
+function calculateScoreSync(member, riskData, target) {
     const joinDate = new Date(member.joinDate);
     const now = new Date();
     const monthsActive = Math.max(1, Math.round((now - joinDate) / (1000 * 60 * 60 * 24 * 30)));
 
-    // 1. Contribution Consistency
-    const payments = await dbGet("SELECT SUM(amount) as total FROM payments WHERE memberId = ? AND status = 'completed' AND walletType IN ('Savings', 'SACCO Savings', 'Share Capital')", [memberId]);
-    const totalPaid = payments.total || 0;
+    const { totalPaid, loans, penaltyCount } = riskData;
     const expectedTotal = target * monthsActive;
     const contributionRatio = Math.min(1, totalPaid / expectedTotal);
 
-    // 2. Repayment Punctuality
-    const loans = await dbAll("SELECT id, amount, dueDate FROM loans WHERE memberId = ?", [memberId]);
     let totalLoanDaysOverdue = 0;
     let loanCount = loans.length;
-    
+
     for (const l of loans) {
-        const repayments = await dbAll("SELECT paidDate FROM loan_repayments WHERE loanId = ?", [l.id]);
         const dueDate = new Date(l.dueDate);
-        repayments.forEach(r => {
+        l.repayments.forEach(r => {
             const paidDate = new Date(r.paidDate);
             if (paidDate > dueDate) {
-                totalLoanDaysOverdue += Math.round((paidDate - dueDate) / (1000 * 60 * 60 * 24));
+                totalLoanDaysOverdue += Math.max(0, Math.round((paidDate - dueDate) / (1000 * 60 * 60 * 24)));
             }
         });
     }
-    // Score penalty for lateness: 0-30 points. -1 point per 5 days overdue avg.
+
     const avgOverdue = loanCount > 0 ? totalLoanDaysOverdue / loanCount : 0;
     const punctualityScore = Math.max(0, 30 - (avgOverdue / 5));
-
-    // 3. Seniority
-    const seniorityScore = Math.min(20, monthsActive * 0.5); // Max 20 points after 40 months
-
-    // 4. Penalties
-    const penalties = await dbGet("SELECT COUNT(*) as c FROM penalties WHERE memberId = ?", [memberId]);
-    const penaltyScore = Math.max(0, 10 - (penalties.c * 2)); // -2 per penalty
+    const seniorityScore = Math.min(20, monthsActive * 0.5);
+    const penaltyScore = Math.max(0, 10 - (penaltyCount * 2));
 
     const finalScore = (contributionRatio * 40) + punctualityScore + seniorityScore + penaltyScore;
-    
+
     return {
         score: Math.round(finalScore),
         breakdown: {
@@ -71,20 +81,25 @@ async function calculateMemberScore(memberId) {
             totalPaid,
             expectedTotal,
             avgOverdue,
-            penaltyCount: penalties.c
+            penaltyCount
         }
     };
 }
 
 router.get('/scores', authRequired, async (req, res) => {
     try {
-        const members = await dbAll("SELECT id, name, membershipNumber, phone, status FROM members WHERE status = 'active' LIMIT 100");
-        const results = [];
-        for (const m of members) {
-            const risk = await calculateMemberScore(m.id);
-            results.push({ ...m, ...risk });
-        }
-        // Sort by score descending
+        const settings = await getSystemSettings();
+        const target = parseFloat(settings.contribution_target || 1000);
+        
+        const members = await dbAll("SELECT id, name, membershipNumber, phone, status, joinDate FROM members WHERE status = 'active' LIMIT 100");
+        const memberIds = members.map(m => m.id);
+        const riskData = await getBulkRiskData(memberIds);
+        
+        const results = members.map(m => {
+            const risk = calculateScoreSync(m, riskData[m.id], target);
+            return { ...m, ...risk };
+        });
+        
         results.sort((a, b) => b.score - a.score);
         res.json({ members: results });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -92,21 +107,32 @@ router.get('/scores', authRequired, async (req, res) => {
 
 router.get('/member/:id', authRequired, async (req, res) => {
     try {
-        const risk = await calculateMemberScore(req.params.id);
+        const member = await dbGet('SELECT * FROM members WHERE id = ?', [req.params.id]);
+        if (!member) return res.status(404).json({ error: 'Not found' });
+        
+        const settings = await getSystemSettings();
+        const target = parseFloat(settings.contribution_target || 1000);
+        
+        const riskData = await getBulkRiskData([member.id]);
+        const risk = calculateScoreSync(member, riskData[member.id], target);
+        
         res.json(risk);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Automated Risk Alerts (Critical members)
 router.get('/alerts', authRequired, async (req, res) => {
     try {
         const settings = await getSystemSettings();
         const threshold = parseInt(settings.risk_alert_threshold || 40);
+        const target = parseFloat(settings.contribution_target || 1000);
         
-        const members = await dbAll("SELECT id, name, membershipNumber FROM members WHERE status = 'active'");
+        const members = await dbAll("SELECT id, name, membershipNumber, joinDate FROM members WHERE status = 'active'");
+        const memberIds = members.map(m => m.id);
+        const riskData = await getBulkRiskData(memberIds);
+        
         const alerts = [];
         for (const m of members) {
-            const risk = await calculateMemberScore(m.id);
+            const risk = calculateScoreSync(m, riskData[m.id], target);
             if (risk.score < threshold) {
                 alerts.push({
                     memberId: m.id,
