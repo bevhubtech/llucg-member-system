@@ -2478,6 +2478,12 @@ const MemberPortal = () => {
             case 'Meetings':
                 return (
                     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Calendar size={18} /> Meeting Schedule</h3>
+                            <button className="btn btn-accent" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => setShowScanner(true)}>
+                                <Activity size={16} /> Scan QR to Check-in
+                            </button>
+                        </div>
                         <div className="table-wrap">
                             <table>
                                 <thead>
@@ -2647,9 +2653,6 @@ const MemberPortal = () => {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <button className="btn btn-accent" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => setShowScanner(true)}>
-                        <Activity size={16} /> Check-in
-                    </button>
                     <button 
                         className="btn btn-ghost btn-icon" 
                         style={{ position: 'relative' }}
