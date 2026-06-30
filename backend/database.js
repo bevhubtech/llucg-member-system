@@ -91,6 +91,7 @@ const db = {
         if (isInsert && !sql.toUpperCase().includes('RETURNING') && 
             !sql.toUpperCase().includes('SYSTEM_FEATURES') && 
             !sql.toUpperCase().includes('PORTAL_SETTINGS') && 
+            !sql.toUpperCase().includes('INTO SETTINGS') && 
             !sql.toUpperCase().includes('WITHDRAWALS')) {
             queryText = queryText.replace(/;?\s*$/, ' RETURNING id');
         }
