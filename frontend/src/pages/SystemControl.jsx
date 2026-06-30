@@ -575,11 +575,21 @@ const SystemControl = () => {
         } catch (e) {}
     };
     const toggleConfig = async (key, current) => {
-        const next = current === 'true' ? 'false' : 'true';
+        setBusyId(key);
+        // UI treats anything not 'false' as ON. So if it's currently 'false', we toggle to 'true', otherwise 'false'.
+        const next = current === 'false' ? 'true' : 'false';
         try {
             const r = await apiFetch('/api/system/settings', { method: 'PUT', body: JSON.stringify({ settings: { [key]: next } }) });
-            if (r.ok) fetchPortalSettings();
-        } catch (e) {}
+            if (r.ok) {
+                await fetchPortalSettings();
+            } else {
+                showToast('Failed to update setting', 'error');
+            }
+        } catch (e) {
+            showToast(e.message, 'error');
+        } finally {
+            setBusyId(null);
+        }
     };
 
     const saveConfig = async (updates) => {
