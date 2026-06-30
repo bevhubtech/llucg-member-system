@@ -54,33 +54,6 @@ const restoreCamelCase = (rows) => {
     });
 }
 
-let isProcessing = false;
-let queue = [];
-
-const processQueue = () => {
-    if (isProcessing || queue.length === 0) return;
-    isProcessing = true;
-    const { op, args, cb } = queue.shift();
-    op(...args, (err, res) => {
-        isProcessing = false;
-        try {
-            if (cb) cb.apply(res, [err, res]);
-        } catch (e) {
-            console.error("Queue callback error:", e);
-        }
-        processQueue();
-    });
-};
-
-const queueOp = (text, values, isInsert, cb) => {
-    queue.push({
-        op: executeQuery,
-        args: [text, values, isInsert],
-        cb: cb
-    });
-    processQueue();
-};
-
 const executeQuery = (text, values, isInsert, fakeCallback) => {
     pool.query(text, values, function(err, res) {
         if (err) {
@@ -105,6 +78,7 @@ const executeQuery = (text, values, isInsert, fakeCallback) => {
 
 const db = {
     serialize: (callback) => {
+        // No-op for Postgres, pooling handles concurrency natively
         callback();
     },
     run: (sql, params, callback) => {
@@ -120,7 +94,7 @@ const db = {
         }
 
         const { text, values } = convertQuery(queryText, params);
-        queueOp(text, values, isInsert, (err, fakeThis) => {
+        executeQuery(text, values, isInsert, (err, fakeThis) => {
             if (err) return callback && callback(err);
             if (callback) callback.call(fakeThis || {}, null);
         });
@@ -128,7 +102,7 @@ const db = {
     get: (sql, params, callback) => {
         if (typeof params === 'function') { callback = params; params = []; }
         const { text, values } = convertQuery(sql, params);
-        queueOp(text, values, false, (err, res) => {
+        executeQuery(text, values, false, (err, res) => {
             if (err) return callback && callback(err);
             if (callback) callback(null, res && res.length > 0 ? res[0] : null);
         });
@@ -136,7 +110,7 @@ const db = {
     all: (sql, params, callback) => {
         if (typeof params === 'function') { callback = params; params = []; }
         const { text, values } = convertQuery(sql, params);
-        queueOp(text, values, false, (err, res) => {
+        executeQuery(text, values, false, (err, res) => {
             if (err) return callback && callback(err);
             if (callback) callback(null, res);
         });
