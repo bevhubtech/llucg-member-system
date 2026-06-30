@@ -2699,39 +2699,7 @@ const MemberPortal = () => {
             </nav>
 
             <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem' }}>
-                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
-                    {TABS.filter(t => {
-                        if (t.key === 'overview') return true;
-                        const features = JSON.parse(localStorage.getItem('system_features') || '{}');
-                        if (Object.keys(features).length === 0) return true;
-                        return features[t.key] !== 'false';
-                    }).map(t => (
-                        <button 
-                            key={t.name}
-                            onClick={() => {
-                                navigate(`/member/portal/${t.slug}`);
-                            }}
-                            className={`btn ${activeTab === t.name ? 'btn-primary' : 'btn-ghost'}`}
-                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', position: 'relative' }}
-                        >
-                            {t.name}
-                            {t.badge > 0 && (
-                                <span style={{ 
-                                    position: 'absolute', top: -5, right: -5, 
-                                    background: 'var(--danger)', color: '#fff', 
-                                    borderRadius: '50%', width: 18, height: 18, 
-                                    fontSize: '0.65rem', display: 'flex', 
-                                    alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                    fontWeight: 900
-                                }}>
-                                    {t.badge}
-                                </span>
-                            )}
-                        </button>
 
-                    ))}
-                </div>
 
             {/* ── Status Banners ── */}
             {stats?.registration_fee_paid === 0 && (
