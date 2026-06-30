@@ -234,7 +234,7 @@ const handleMembershipUpdate = async (member) => {
                                             </span>
                                         </td>
                                         <td className="text-right">
-                                            <div style={{ fontWeight: 700 }}>KES {m.totalSavings.toLocaleString()}</div>
+                                            <div style={{ fontWeight: 700 }}>KES {(m.totalSavings || 0).toLocaleString()}</div>
                                         </td>
                                         <td className="text-center">
                                             <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{m.monthsActive} Mo.</div>
@@ -327,7 +327,7 @@ const handleMembershipUpdate = async (member) => {
                                                 <div style={{ position: 'absolute', left: '-1.95rem', top: '0.2rem', width: '12px', height: '12px', borderRadius: '50%', background: '#8b5cf6', border: '3px solid var(--card-bg)' }} />
                                                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase' }}>Wealth Milestone</div>
                                                 <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>Current Managed Capital</div>
-                                                <div style={{ fontSize: '1.2rem', fontWeight: 900, marginTop: '0.4rem' }}>KES {selectedMember.totalSavings.toLocaleString()}</div>
+                                                <div style={{ fontSize: '1.2rem', fontWeight: 900, marginTop: '0.4rem' }}>KES {(selectedMember.totalSavings || 0).toLocaleString()}</div>
                                             </div>
                                         )}
 
