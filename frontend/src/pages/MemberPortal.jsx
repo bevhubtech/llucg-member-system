@@ -2646,38 +2646,6 @@ const MemberPortal = () => {
                 </div>
             )}
 
-            <nav style={{ padding: '1.25rem 2rem', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: systemSettings?.global_announcement || systemSettings?.maintenanceMode ? '34px' : 0, zIndex: 100 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ background: 'var(--accent)', color: '#fff', width: 32, height: 32, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>L</div>
-                    <span style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em' }}>LLUCG <span style={{ color: 'var(--text-dim)', fontWeight: 500, fontSize: '0.8rem' }}>PORTAL</span></span>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <button 
-                        className="btn btn-ghost btn-icon" 
-                        style={{ position: 'relative' }}
-                        onClick={() => navigate('/member/portal/notifications')}
-                    >
-                        <Bell size={18} />
-                        {notifications.filter(n => !n.isRead).length > 0 && (
-                            <span style={{ 
-                                position: 'absolute', top: 0, right: 0, 
-                                width: 8, height: 8, background: 'var(--danger)', 
-                                borderRadius: '50%', border: '2px solid var(--surface)' 
-                            }} />
-                        )}
-                    </button>
-                    {systemSettings?.allow_user_theme_toggle === 'true' && (
-                        <button className="btn btn-ghost" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-                            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                        </button>
-                    )}
-                    <div style={{ width: 40, height: 40, borderRadius: '12px', background: 'var(--accent-dim)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--accent)' }}>
-                        {stats?.name?.charAt(0) || 'M'}
-                    </div>
-                </div>
-            </nav>
-
             <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem' }}>
 
 
