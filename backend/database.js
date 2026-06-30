@@ -24,6 +24,8 @@ const convertQuery = (sql, params = []) => {
     text = text.replace(/strftime\('%m',\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS TIMESTAMP), 'MM')");
     text = text.replace(/strftime\('%Y-W%W',\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS TIMESTAMP), 'IYYY-\"W\"IW')");
     
+    text = text.replace(/INSERT OR REPLACE INTO settings \(([^)]+)\) VALUES \(([^)]+)\)/gi, 'INSERT INTO settings ($1) VALUES ($2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value');
+    
     text = text.replace(/([a-zA-Z_]+)\s*>=\s*CURRENT_DATE/gi, 'CAST($1 AS TIMESTAMP) >= CURRENT_DATE');
     text = text.replace(/([a-zA-Z_]+)\s*>=\s*CURRENT_TIMESTAMP/gi, 'CAST($1 AS TIMESTAMP) >= CURRENT_TIMESTAMP');
     text = text.replace(/([a-zA-Z_]+)\s*<\s*CURRENT_DATE/gi, 'CAST($1 AS TIMESTAMP) < CURRENT_DATE');
