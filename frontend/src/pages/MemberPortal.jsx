@@ -292,60 +292,37 @@ const MemberPortal = () => {
     const fetchAll = async () => {
         setLoading(true);
         try {
-            const [s, b, e, p, l, pl, po, pe, rs, ds, gu, wh, mtgs, pots, divs, notifs, apps, ledgerData, pol, ben, sys, vaultDocs] = await Promise.all([
-                safeJson('/api/member/me',                    {}),
-                safeJson('/api/member/me/balance',            {}),
-                safeJson('/api/member/me/trust-score',        {}),
-                safeJson('/api/member/me/payments',           { payments: [] }),
-                safeJson('/api/member/me/loans',              { loans: [] }),
-                safeJson('/api/member/me/pledges',            { pledges: [] }),
-                safeJson('/api/member/me/polls',              { polls: [] }),
-                safeJson('/api/member/me/penalties',          { penalties: [] }),
-                safeJson('/api/member/me/resolutions',        { resolutions: [] }),
-                safeJson('/api/member/me/documents',          { documents: [] }),
-                safeJson('/api/member/me/guarantor-requests', { requests: [] }),
-                safeJson('/api/member/me/wealth-history',     { history: [] }),
-                safeJson('/api/member/me/meetings',           { meetings: [] }),
-                safeJson('/api/member/me/target-savings',     { pots: [] }),
-                safeJson('/api/member/me/dividends',          { dividends: [] }),
-                safeJson('/api/member/me/notifications',      { notifications: [] }),
-                safeJson('/api/member/me/applications',       { applications: [] }),
-                safeJson('/api/member/me/ledger',             { ledger: [] }),
-                safeJson('/api/ict/dividend-policy',          { policy: '' }),
-                safeJson('/api/member/me/beneficiaries',      { beneficiaries: [] }),
-                safeJson('/api/system/status',                { features: {} }),
-                safeJson('/api/documents/vault',              { documents: [] })
-            ]);
-
+            const res = await safeJson('/api/member/me/dashboard-bulk', {});
+            
             // Fetch lexicon independently to avoid blocking main UI on auth issues
             safeJson('/api/ict/lexicon', { labels: {} }).then(lex => {
                 if (lex?.labels) setLexicon(lex.labels);
             }).catch(err => console.warn('Lexicon non-blocking error:', err));
 
-            setPolicyContent(pol?.policy || '');
-            const newFeatures = sys?.features || {};
+            setPolicyContent(res.policy?.policy || '');
+            const newFeatures = res.features || {};
             setSystemSettings(newFeatures);
             localStorage.setItem('system_features', JSON.stringify(newFeatures));
-            setStats({ ...(s || {}), ...(b || {}), ...(e || {}) });
-            setProfileEmail(s?.email || '');
-            setProfilePhone(s?.phone || '');
-            setPayments(p?.payments || []);
-            setLoans(l?.loans || []);
-            setPledges(pl?.pledges || []);
-            setPolls(po?.polls || []);
-            setPenalties(pe?.penalties || []);
-            setResolutions(rs?.resolutions || []);
-            setDocuments(ds?.documents || []);
-            setGuarantors(gu?.requests || []);
-            setDividends(divs?.dividends || []);
-            setNotifications(notifs?.notifications || []);
-            setWealthHistory(wh?.history || []);
-            setMeetings(mtgs?.meetings || []);
-            setSavingsPots(pots?.pots || []);
-            setLedger(ledgerData?.ledger || []);
-            setLoanApps(apps?.applications || []);
-            setBeneficiaries(ben?.beneficiaries || []);
-            setGroupDocuments(vaultDocs?.documents || []);
+            setStats({ ...(res.member || {}), ...(res.balance || {}), ...(res.trustScore || {}) });
+            setProfileEmail(res.member?.email || '');
+            setProfilePhone(res.member?.phone || '');
+            setPayments(res.payments || []);
+            setLoans(res.loans || []);
+            setPledges(res.pledges || []);
+            setPolls(res.polls || []);
+            setPenalties(res.penalties || []);
+            setResolutions(res.resolutions || []);
+            setDocuments(res.documents || []);
+            setGuarantors(res.requests || []);
+            setDividends(res.dividends || []);
+            setNotifications(res.notifications || []);
+            setWealthHistory(res.history || []);
+            setMeetings(res.meetings || []);
+            setSavingsPots(res.pots || []);
+            setLedger(res.ledger || []);
+            setLoanApps(res.applications || []);
+            setBeneficiaries(res.beneficiaries || []);
+            setGroupDocuments(res.vaultDocs || []);
         } catch (err) {
             console.error('Member Portal Data Error:', err);
         } finally {

@@ -1200,4 +1200,144 @@ router.get('/payments/:id/receipt.pdf', memberAuthRequired, async (req, res) => 
 });
 
 
+// --- Bulk Dashboard Fetch (Performance Optimization) ---
+router.get('/dashboard-bulk', memberAuthRequired, async (req, res) => {
+    try {
+        const memberId = req.member.id;
+        
+        // Parallelize all the independent DB queries needed for the dashboard
+        const [
+            member, savings, debt, personalWallet, penaltiesActive, welfare, regCount,
+            payments,
+            loans,
+            pledges,
+            polls,
+            penalties,
+            resolutions,
+            documents,
+            requests,
+            meetings,
+            pots,
+            dividends,
+            notifications,
+            applications,
+            ledger,
+            policyRes,
+            beneficiaries,
+            features,
+            vaultDocs,
+            meetingAtt,
+            shareCapLedger
+        ] = await Promise.all([
+            dbGet('SELECT m.*, t.name as tierName FROM members m LEFT JOIN contribution_tiers t ON m.tierId = t.id WHERE m.id = ?', [memberId]),
+            dbGet("SELECT COALESCE(SUM(amount), 0) as t FROM ledger WHERE memberId = ? AND type IN ('SAVINGS', 'SHARE_CAPITAL')", [memberId]),
+            dbGet("SELECT COALESCE(SUM(l.amount - (SELECT COALESCE(SUM(r.amount), 0) FROM loan_repayments r WHERE r.loanId = l.id)), 0) as t FROM loans l WHERE l.memberId = ? AND l.status='active'", [memberId]),
+            dbGet("SELECT COALESCE(SUM(amount), 0) as t FROM ledger WHERE memberId = ? AND type='PERSONAL'", [memberId]),
+            dbGet("SELECT COALESCE(SUM(amount), 0) as t FROM penalties WHERE memberId = ? AND paidStatus='unpaid'", [memberId]),
+            dbGet("SELECT COALESCE(SUM(amount), 0) as t FROM ledger WHERE memberId = ? AND type='WELFARE'", [memberId]),
+            dbGet("SELECT COUNT(*) as c FROM payments WHERE memberId = ? AND walletType='Registration Fee' AND status='completed'", [memberId]),
+            
+            dbAll('SELECT * FROM payments WHERE memberId = ? ORDER BY paymentDate DESC LIMIT 50', [memberId]),
+            dbAll('SELECT l.*, (SELECT COALESCE(SUM(amount),0) FROM loan_repayments WHERE loanId=l.id) as paid FROM loans l WHERE memberId = ? ORDER BY disbursedDate DESC', [memberId]),
+            dbAll('SELECT p.*, pen.paidStatus, pen.amount as feeAmount FROM pledges p LEFT JOIN penalties pen ON p.penaltyId = pen.id WHERE p.memberId = ? ORDER BY p.timestamp DESC', [memberId]),
+            dbAll('SELECT * FROM polls ORDER BY timestamp DESC', []),
+            dbAll('SELECT * FROM penalties WHERE memberId = ? ORDER BY issuedDate DESC', [memberId]),
+            dbAll('SELECT * FROM meeting_resolutions ORDER BY timestamp DESC LIMIT 10', []),
+            dbAll('SELECT * FROM member_documents WHERE memberId = ? ORDER BY uploadDate DESC', [memberId]),
+            dbAll('SELECT g.*, m.name as borrowerName, l.amount as loanAmount, l.dueDate, l.status as loanStatus, (SELECT COALESCE(SUM(amount),0) FROM loan_repayments WHERE loanId = l.id) as totalRepaid, l.originalPrincipal, l.totalInterest FROM loan_guarantors g JOIN loans l ON g.loanId = l.id JOIN members m ON l.memberId = m.id WHERE g.memberId = ? ORDER BY l.disbursedDate DESC', [memberId]),
+            dbAll('SELECT m.*, COALESCE(a.attended, 0) as attended, a.checkInTime FROM meetings m LEFT JOIN meeting_attendance a ON m.id = a.meetingId AND a.memberId = ? ORDER BY m.date DESC LIMIT 10', [memberId]),
+            dbAll('SELECT * FROM target_savings WHERE memberId = ? ORDER BY createdAt DESC', [memberId]),
+            dbAll('SELECT d.*, dv.distributionDate, dv.calcMethod, dv.note FROM dividend_distributions d JOIN dividends dv ON d.dividendId = dv.id WHERE d.memberId = ? ORDER BY dv.distributionDate DESC', [memberId]),
+            dbAll("SELECT * FROM notifications WHERE userId = ? AND userType = 'member' ORDER BY timestamp DESC LIMIT 50", [memberId]),
+            dbAll('SELECT * FROM loan_applications WHERE memberId = ? ORDER BY timestamp DESC', [memberId]),
+            dbAll('SELECT * FROM ledger WHERE memberId = ? ORDER BY date DESC LIMIT 100', [memberId]),
+            getSystemSettings(), // We need policy which is from settings
+            dbAll('SELECT * FROM beneficiaries WHERE memberId = ? ORDER BY createdAt DESC', [memberId]),
+            dbGet("SELECT value FROM settings WHERE key='system_features'"), // Usually a JSON string
+            dbAll('SELECT * FROM group_documents ORDER BY uploadedAt DESC', []),
+            dbGet('SELECT COUNT(*) as c FROM meeting_attendance WHERE memberId = ? AND attended=1', [memberId]),
+            dbAll("SELECT amount, date FROM ledger WHERE memberId = ? AND type='SHARE_CAPITAL'", [memberId])
+        ]);
+
+        // Post-processing
+        const totalSavings = savings.t;
+        const pWallet = personalWallet.t;
+        const maxLimit = totalSavings * 3.0;
+        const availableLimit = Math.max(0, maxLimit - debt.t);
+
+        const memberData = {
+            ...member,
+            savings: totalSavings,
+            currentDebt: debt.t,
+            outstandingFees: penaltiesActive.t,
+            availableLimit: availableLimit,
+            personalWallet: pWallet,
+            welfareBalance: welfare.t,
+            registration_fee_paid: regCount.c > 0,
+            walletBalance: pWallet
+        };
+
+        // Trust score
+        let score = 50;
+        const paymentCount = payments.filter(p => p.status === 'completed').length;
+        score += Math.min(20, paymentCount * 2);
+        score += Math.min(15, meetingAtt.c * 3);
+        if (penaltiesActive.t > 0) score -= 20; // Simplified penalty
+        else score += 10;
+        const joinDate = new Date(member.joinDate || Date.now());
+        const months = Math.floor((new Date() - joinDate) / (30 * 24 * 60 * 60 * 1000));
+        score += Math.min(5, Math.max(0, months));
+        score = Math.max(0, Math.min(100, score));
+
+        // Wealth history calculation in memory
+        const whMonths = [];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            whMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        }
+        
+        let cumulative = 0;
+        const history = whMonths.map(m => {
+            const mPayments = payments.filter(p => p.status === 'completed' && p.paymentDate && p.paymentDate.startsWith(m) && !['Registration Fee', 'Penalty', 'Welfare Fund', 'Welfare'].includes(p.walletType));
+            const mLedger = shareCapLedger.filter(l => l.date && l.date.startsWith(m));
+            const sum = mPayments.reduce((s, p) => s + p.amount, 0) + mLedger.reduce((s, l) => s + l.amount, 0);
+            cumulative += sum;
+            return { month: m, cumulativeWealth: cumulative };
+        });
+
+        // Format system settings
+        const policy = { policy: policyRes?.dividend_policy || '' };
+        let parsedFeatures = {};
+        try { parsedFeatures = features ? JSON.parse(features.value) : {}; } catch (e) {}
+
+        res.json({
+            member: memberData,
+            balance: { savings: savings.t, welfare: welfare.t, currentDebt: debt.t, currency: 'KES' },
+            trustScore: { score },
+            payments,
+            loans,
+            pledges,
+            polls,
+            penalties,
+            resolutions,
+            documents,
+            requests,
+            meetings,
+            pots,
+            dividends,
+            notifications,
+            applications,
+            ledger,
+            policy,
+            beneficiaries,
+            features: parsedFeatures,
+            vaultDocs,
+            history
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
