@@ -344,8 +344,8 @@ const Layout = ({ children, type = 'admin' }) => {
                             {canAccess(role, features, 'pledges', canSeeFinancials) && isEnabled('toggle_admin_pledges') && navItem("/pledges", features.ui_label_admin_pledges || "Pledges", Handshake, false, features.ui_icon_admin_pledges)}
                             {canAccess(role, features, 'investments', canSeeFinancials) && isEnabled('toggle_admin_investments') && navItem("/investments", features.ui_label_admin_investments || "Investments", TrendingUp, false, features.ui_icon_admin_investments)}
                             {canAccess(role, features, 'expenses', canSeeExpenses) && isEnabled('toggle_admin_expenses') && navItem("/expenses", features.ui_label_admin_expenses || "Expenses", Receipt, false, features.ui_icon_admin_expenses)}
-                            {canAccess(role, features, 'dividends', canSeeFinancials) && navItem("/dividends", features.ui_label_admin_dividends || "Dividends", Award, false, features.ui_icon_admin_dividends)}
-                            {canAccess(role, features, 'financial_governance', canSeeFinancials) && navItem("/financial-governance", "Financial Governance", Banknote)}
+                            {canAccess(role, features, 'dividends', canSeeFinancials) && isEnabled('toggle_admin_dividends') && navItem("/dividends", features.ui_label_admin_dividends || "Dividends", Award, false, features.ui_icon_admin_dividends)}
+                            {canSeeFinancials(role) && isEnabled('toggle_admin_governance') && navItem("/financial-governance", "Financial Governance", Banknote)}
                             
                             <div className="sidebar-section">{features.label_sidebar_governance || 'Governance & Reports'}</div>
                             {canAccess(role, features, 'members', canSeeGovernance) && isEnabled('toggle_admin_members') && navItem("/members", features.ui_label_admin_members || "Members", Users, false, features.ui_icon_admin_members)}
