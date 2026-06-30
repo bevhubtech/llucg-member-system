@@ -222,7 +222,7 @@ db.serialize(() => {
             db.get('SELECT COUNT(*) as c FROM admin_users', [], (err, row) => {
                 const plain = '123456';
                 const hash = bcrypt.hashSync(plain, 10);
-                if (!err && row.c === 0) {
+                if (!err && Number(row.c) === 0) {
                     db.run('INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)', ['admin', hash, 'superadmin']);
                     console.log(`Super-admin user seeded (admin/123456).`);
                 } else if (!err) {
@@ -728,7 +728,7 @@ db.serialize(() => {
 
         // Seed test member if empty
         db.get('SELECT COUNT(*) as c FROM members', [], (err, row) => {
-            if (!err && row.c === 0) {
+            if (!err && Number(row.c) === 0) {
                 const now  = new Date();
                 const next = new Date(now);
                 next.setDate(now.getDate() + 30);
