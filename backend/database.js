@@ -33,7 +33,7 @@ const processQueue = () => {
     op(...args, (err, res) => {
         isProcessing = false;
         try {
-            if (cb) cb(err, res);
+            if (cb) cb.apply(res, [err, res]);
         } catch (e) {
             console.error("Queue callback error:", e);
         }
