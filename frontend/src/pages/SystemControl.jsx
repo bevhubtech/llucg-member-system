@@ -2285,7 +2285,7 @@ const SystemControl = () => {
                                              <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                                                  {[
                                                      { section: 'Admin Workspace - Financials', items: [
-                                                         { id: 'admin_dashboard', label: 'Dashboard', key: 'overview', icon: LayoutDashboard },
+                                                         { id: 'admin_dashboard', label: 'Dashboard', key: 'toggle_admin_dashboard', icon: LayoutDashboard },
                                                          { id: 'admin_payments', label: 'Payments', key: 'toggle_admin_payments', icon: CreditCard },
                                                          { id: 'admin_reconciliation', label: 'Reconciliation', key: 'toggle_admin_reconciliation', icon: RefreshCw },
                                                          { id: 'admin_savings', label: 'Savings', key: 'toggle_admin_savings', icon: PiggyBank },
@@ -2304,7 +2304,7 @@ const SystemControl = () => {
                                                          { id: 'admin_campaigns', label: 'Announcements', key: 'toggle_admin_campaigns', icon: Megaphone },
                                                          { id: 'admin_polls', label: 'Polls & Voting', key: 'toggle_admin_polls', icon: PieChart },
                                                          { id: 'admin_reports', label: 'Business Intelligence', key: 'toggle_admin_reports', icon: FileText },
-                                                         { id: 'admin_risk', label: 'Risk Intelligence', key: 'toggle_admin_risk', icon: ShieldAlert },
+                                                         { id: 'admin_risk', label: 'Member Lifestyle Intelligence', key: 'toggle_admin_risk', icon: ShieldAlert },
                                                          { id: 'admin_logs', label: 'Audit Trail', key: 'toggle_admin_logs', icon: History },
                                                          { id: 'admin_settings', label: 'System Settings', key: 'toggle_admin_settings', icon: SettingsIcon },
                                                          { id: 'admin_security', label: 'Security Center', key: 'toggle_admin_security', icon: ShieldCheck }
@@ -2563,22 +2563,25 @@ const SystemControl = () => {
                                      
                                      {[
                                          { section: 'Admin Portal - Financials', items: [
+                                             { key: 'toggle_admin_dashboard', label: 'Dashboard', icon: LayoutDashboard },
                                              { key: 'toggle_admin_payments', label: 'Payments Module', icon: CreditCard },
                                              { key: 'toggle_admin_reconciliation', label: 'Reconciliation Engine', icon: RefreshCw },
                                              { key: 'toggle_admin_savings', label: 'Savings Ledger', icon: PiggyBank },
                                              { key: 'toggle_admin_loans', label: 'Loan Management', icon: Banknote },
-                                             { key: 'toggle_admin_withdrawals', label: 'Withdrawal Processing', icon: DollarSign },
+                                             { key: 'toggle_admin_withdrawals', label: 'Payouts', icon: DollarSign },
+                                             { key: 'toggle_admin_dividends', label: 'Dividends', icon: Award },
                                              { key: 'toggle_admin_pledges', label: 'Commitment Pledges', icon: Handshake },
                                              { key: 'toggle_admin_investments', label: 'Portfolio Analytics', icon: TrendingUp },
                                              { key: 'toggle_admin_expenses', label: 'Expense Tracking', icon: Receipt },
                                          ]},
                                          { section: 'Admin Portal - Governance & Ops', items: [
+                                             { key: 'toggle_admin_governance', label: 'Financial Governance', icon: Banknote },
                                              { key: 'toggle_admin_members', label: 'Member Registry', icon: Users },
                                              { key: 'toggle_admin_meetings', label: 'Meeting Scheduler', icon: Calendar },
                                              { key: 'toggle_admin_communications', label: 'Communication Hub', icon: MessageSquare },
                                              { key: 'toggle_admin_polls', label: 'Decision Polls', icon: PieChart },
                                              { key: 'toggle_admin_reports', label: 'Business Intelligence', icon: FileText },
-                                             { key: 'toggle_admin_risk', label: 'Risk Management', icon: ShieldAlert },
+                                             { key: 'toggle_admin_risk', label: 'Member Lifestyle Intelligence', icon: ShieldAlert },
                                              { key: 'toggle_admin_users', label: 'System Access Control', icon: Key },
                                              { key: 'toggle_admin_logs', label: 'Audit Trail / Logs', icon: History },
                                              { key: 'toggle_admin_settings', label: 'Global Configurations', icon: SettingsIcon },
