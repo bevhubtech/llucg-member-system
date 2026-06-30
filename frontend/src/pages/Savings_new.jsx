@@ -139,19 +139,19 @@ const Savings = () => {
                 <div className="card stat-card" style={{ borderLeft: '4px solid var(--accent)' }}>
                     <div className="stat-icon-wrap" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}><Wallet size={20} /></div>
                     <div className="stat-label">Total Group Capital</div>
-                    <div className="stat-value text-accent">KES {stats.total.toLocaleString()}</div>
+                    <div className="stat-value text-accent">KES {(stats.total || 0).toLocaleString()}</div>
                     <div className="stat-desc">Aggregated member wealth</div>
                 </div>
                 <div className="card stat-card" style={{ borderLeft: '4px solid var(--success)' }}>
                     <div className="stat-icon-wrap" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)' }}><TrendingUp size={20} /></div>
                     <div className="stat-label">Personal Savings</div>
-                    <div className="stat-value text-success">KES {stats.personal.toLocaleString()}</div>
+                    <div className="stat-value text-success">KES {(stats.personal || 0).toLocaleString()}</div>
                     <div className="stat-desc">Withdrawable liquidity</div>
                 </div>
                 <div className="card stat-card" style={{ borderLeft: '4px solid var(--warning)' }}>
                     <div className="stat-icon-wrap" style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--warning)' }}><Briefcase size={20} /></div>
                     <div className="stat-label">SACCO Shares</div>
-                    <div className="stat-value text-warning">KES {stats.sacco.toLocaleString()}</div>
+                    <div className="stat-value text-warning">KES {(stats.sacco || 0).toLocaleString()}</div>
                     <div className="stat-desc">Locked equity capital</div>
                 </div>
                 <div className="card stat-card" style={{ borderLeft: '4px solid var(--info)' }}>

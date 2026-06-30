@@ -83,11 +83,11 @@ const SavingsSummary = () => {
                     <div style={{ display: 'flex', gap: '1.5rem' }}>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Group SACCO Total</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)' }}>KES {totals.sacco.toLocaleString()}</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)' }}>KES {(totals.sacco || 0).toLocaleString()}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Group Personal Total</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--success)' }}>KES {totals.personal.toLocaleString()}</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--success)' }}>KES {(totals.personal || 0).toLocaleString()}</div>
                         </div>
                     </div>
                 </div>

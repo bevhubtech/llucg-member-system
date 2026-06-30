@@ -2640,7 +2640,7 @@ const SystemControl = () => {
                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
                                              <div className="card shadow-md" style={{ background: 'var(--bg-card)', borderLeft: '4px solid var(--accent)' }}>
                                                  <span style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.5, textTransform: 'uppercase' }}>Total Welfare Pool</span>
-                                                 <h3 style={{ fontSize: '1.75rem', fontWeight: 900, margin: '0.5rem 0' }}>KES {welfareStats.totalBalance.toLocaleString()}</h3>
+                                                 <h3 style={{ fontSize: '1.75rem', fontWeight: 900, margin: '0.5rem 0' }}>KES {(welfareStats.totalBalance || 0).toLocaleString()}</h3>
                                                  <div style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Active Reserves</div>
                                              </div>
                                              <div className="card shadow-md" style={{ background: 'var(--bg-card)' }}>
@@ -2678,7 +2678,7 @@ const SystemControl = () => {
                                                                          <div style={{ fontWeight: 800 }}>{h.memberName}</div>
                                                                          <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>{h.membershipNumber}</div>
                                                                      </td>
-                                                                     <td style={{ fontWeight: 800, color: 'var(--success)' }}>KES {h.amount.toLocaleString()}</td>
+                                                                     <td style={{ fontWeight: 800, color: 'var(--success)' }}>KES {(h.amount || 0).toLocaleString()}</td>
                                                                      <td style={{ fontSize: '0.8rem' }}>{new Date(h.date).toLocaleDateString()}</td>
                                                                      <td><code style={{ fontSize: '0.75rem' }}>{h.reference}</code></td>
                                                                  </tr>
@@ -2697,7 +2697,7 @@ const SystemControl = () => {
                                                          <div key={i}>
                                                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.4rem' }}>
                                                                  <span>{t.month}</span>
-                                                                 <span style={{ fontWeight: 800 }}>KES {t.total.toLocaleString()}</span>
+                                                                 <span style={{ fontWeight: 800 }}>KES {(t.total || 0).toLocaleString()}</span>
                                                              </div>
                                                              <div style={{ height: 6, background: 'var(--bg-body)', borderRadius: 3, overflow: 'hidden' }}>
                                                                  <div style={{ 
@@ -2848,7 +2848,7 @@ const SystemControl = () => {
                                                                      <tr key={h.id}>
                                                                          <td style={{ fontSize: '0.85rem' }}>{new Date(h.distributedAt).toLocaleDateString()}</td>
                                                                          <td><span className="badge badge-accent-outline" style={{ fontSize: '0.65rem' }}>{h.fundingSource || 'Reserves'}</span></td>
-                                                                         <td style={{ fontWeight: 800 }}>KES {h.totalAmount.toLocaleString()}</td>
+                                                                         <td style={{ fontWeight: 800 }}>KES {(h.totalAmount || 0).toLocaleString()}</td>
                                                                          <td>{h.memberCount}</td>
                                                                      </tr>
                                                                  ))
