@@ -19,6 +19,20 @@ const convertQuery = (sql, params = []) => {
     text = text.replace(/date\('now',\s*'-(.*?)'\)/gi, (match, interval) => `CURRENT_DATE - INTERVAL '${interval}'`);
     text = text.replace(/datetime\('now',\s*'-(.*?)'\)/gi, (match, interval) => `CURRENT_TIMESTAMP - INTERVAL '${interval}'`);
     text = text.replace(/datetime\('now',\s*'\+(.*?)'\)/gi, (match, interval) => `CURRENT_TIMESTAMP + INTERVAL '${interval}'`);
+    
+    // SQLite strftime to Postgres TO_CHAR
+    text = text.replace(/strftime\('%Y-%m',\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS TIMESTAMP), 'YYYY-MM')");
+    text = text.replace(/strftime\('%Y',\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS TIMESTAMP), 'YYYY')");
+    text = text.replace(/strftime\('%m',\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS TIMESTAMP), 'MM')");
+    text = text.replace(/strftime\('%Y-W%W',\s*([^)]+)\)/gi, "TO_CHAR(CAST($1 AS TIMESTAMP), 'IYYY-\"W\"IW')");
+    
+    // Fix text vs timestamp comparisons by casting the left side of >= date(...) or >= datetime(...)
+    // A simple hack: cast specific known column names if they are compared to CURRENT_DATE/TIMESTAMP
+    text = text.replace(/([a-zA-Z_]+)\s*>=\s*CURRENT_DATE/gi, 'CAST($1 AS TIMESTAMP) >= CURRENT_DATE');
+    text = text.replace(/([a-zA-Z_]+)\s*>=\s*CURRENT_TIMESTAMP/gi, 'CAST($1 AS TIMESTAMP) >= CURRENT_TIMESTAMP');
+    text = text.replace(/([a-zA-Z_]+)\s*<\s*CURRENT_DATE/gi, 'CAST($1 AS TIMESTAMP) < CURRENT_DATE');
+    text = text.replace(/([a-zA-Z_]+)\s*<\s*CURRENT_TIMESTAMP/gi, 'CAST($1 AS TIMESTAMP) < CURRENT_TIMESTAMP');
+
     return { text, values: params };
 };
 
@@ -124,7 +138,10 @@ const db = {
         
         let queryText = sql;
         const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
-        if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
+        if (isInsert && !sql.toUpperCase().includes('RETURNING') && 
+            !sql.toUpperCase().includes('SYSTEM_FEATURES') && 
+            !sql.toUpperCase().includes('PORTAL_SETTINGS') && 
+            !sql.toUpperCase().includes('WITHDRAWALS')) {
             queryText = queryText.replace(/;?\s*$/, ' RETURNING id');
         }
 
