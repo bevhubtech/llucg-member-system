@@ -37,11 +37,16 @@ const Login = () => {
         e.preventDefault();
         setError(''); setLoading(true);
         try {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 15000);
+            
             const res  = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form)
+                body: JSON.stringify(form),
+                signal: controller.signal
             });
+            clearTimeout(id);
             const data = await safeJson(res);
             if (!res.ok) throw new Error(data.error || 'Login failed');
             
@@ -62,7 +67,11 @@ const Login = () => {
             if (data.role === 'ict_admin') navigate('/system-control');
             else navigate('/');
         } catch (err) {
-            setError(err.message);
+            if (err.name === 'AbortError') {
+                setError('Server is taking too long to respond. Please check your connection or try again later.');
+            } else {
+                setError(err.message);
+            }
             setLoading(false);
         }
     };

@@ -57,11 +57,16 @@ const MemberLogin = () => {
     const submit = async (e) => {
         e.preventDefault(); setErr(''); setBusy(true);
         try {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 15000);
+
             const r = await fetch(`/api/member/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phone: form.phone.replace(/\s+/g,''), pin: form.pin }),
+                signal: controller.signal
             });
+            clearTimeout(id);
             const d = await safeJson(r);
             if (r.status === 503) {
                 setMaintenance(true);
@@ -84,7 +89,13 @@ const MemberLogin = () => {
             if (d.mustChangePassword) localStorage.setItem('member_must_change_password', 'true');
             else localStorage.removeItem('member_must_change_password');
             navigate('/member/portal');
-        } catch (e) { setErr(e.message); }
+        } catch (e) { 
+            if (e.name === 'AbortError') {
+                setErr('Server is taking too long to respond. Please check your connection or try again later.');
+            } else {
+                setErr(e.message); 
+            }
+        }
         setBusy(false);
     };
 
