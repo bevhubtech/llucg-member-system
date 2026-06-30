@@ -31,8 +31,12 @@ const processQueue = () => {
     isProcessing = true;
     const { op, args, cb } = queue.shift();
     op(...args, (err, res) => {
-        if (cb) cb(err, res);
         isProcessing = false;
+        try {
+            if (cb) cb(err, res);
+        } catch (e) {
+            console.error("Queue callback error:", e);
+        }
         processQueue();
     });
 };
