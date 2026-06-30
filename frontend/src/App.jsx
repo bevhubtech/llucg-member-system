@@ -250,8 +250,9 @@ const Layout = ({ children, type = 'admin' }) => {
                 end={exact} 
                 className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}
                 onClick={() => {
-                    if (window.innerWidth <= 768) {
+                    if (window.innerWidth <= 1024) {
                         setCollapsed(true);
+                        setIsHovered(false);
                     }
                 }}
             >
@@ -263,8 +264,8 @@ const Layout = ({ children, type = 'admin' }) => {
     const isAdmin = type === 'admin';
     const isMember = type === 'member';
     
-    // Sidebar visually collapses only if it has been toggled closed AND the user is not actively hovering over it.
-    const isVisuallyCollapsed = collapsed && !isHovered;
+    // Sidebar visually collapses only if it has been toggled closed AND the user is not actively hovering over it. On mobile, hover is ignored.
+    const isVisuallyCollapsed = collapsed && (window.innerWidth <= 1024 || !isHovered);
 
     return (
         <div className={`app-layout ${isMember ? 'member-theme' : ''}`}>
@@ -272,7 +273,10 @@ const Layout = ({ children, type = 'admin' }) => {
             {!collapsed && (
                 <div 
                     className="mobile-sidebar-overlay" 
-                    onClick={() => setCollapsed(true)}
+                    onClick={() => {
+                        setCollapsed(true);
+                        setIsHovered(false);
+                    }}
                 />
             )}
             <aside 
