@@ -1,20 +1,116 @@
 require('dotenv').config();
-const sqlite3  = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const bcrypt   = require('bcryptjs');
 const path     = require('path');
-
 const fs = require('fs');
-const dbDir = fs.existsSync('/data') ? '/data' : __dirname;
-const dbPath = path.resolve(dbDir, 'database.sqlite');
 
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) { console.error('Error opening database', err.message); return; }
-    console.log('Connected to SQLite database.');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
-    db.serialize(() => {
+pool.connect((err) => {
+    if (err) { console.error('Error opening Postgres database', err.message); return; }
+    console.log('Connected to Postgres database.');
+});
+
+const convertQuery = (sql, params = []) => {
+    let i = 1;
+    let text = sql.replace(/\?/g, () => `$${i++}`);
+    text = text.replace(/date\('now'\)/gi, 'CURRENT_DATE');
+    text = text.replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP');
+    text = text.replace(/date\('now',\s*'-(.*?)'\)/gi, (match, interval) => `CURRENT_DATE - INTERVAL '${interval}'`);
+    text = text.replace(/datetime\('now',\s*'-(.*?)'\)/gi, (match, interval) => `CURRENT_TIMESTAMP - INTERVAL '${interval}'`);
+    text = text.replace(/datetime\('now',\s*'\+(.*?)'\)/gi, (match, interval) => `CURRENT_TIMESTAMP + INTERVAL '${interval}'`);
+    return { text, values: params };
+};
+
+let queue = [];
+let isProcessing = false;
+let isSerialized = false;
+
+const processQueue = () => {
+    if (isProcessing || queue.length === 0) return;
+    isProcessing = true;
+    const { op, args, cb } = queue.shift();
+    op(...args, (err, res) => {
+        if (cb) cb(err, res);
+        isProcessing = false;
+        processQueue();
+    });
+};
+
+const executeQuery = (text, values, isInsert, fakeCallback) => {
+    pool.query(text, values, function(err, res) {
+        if (err) {
+            if (err.code === '42P07' || err.code === '42701') {
+                if (fakeCallback) fakeCallback(null, { lastID: null, changes: 0 });
+                return;
+            }
+            console.error("SQL Error: ", err.message, " | Query: ", text);
+            if (fakeCallback) fakeCallback(err, null);
+            return;
+        }
+        let fakeThis = null;
+        if (isInsert) {
+             fakeThis = {
+                 lastID: res.rows && res.rows.length > 0 ? res.rows[0].id : null,
+                 changes: res.rowCount
+             };
+        }
+        if (fakeCallback) fakeCallback(null, fakeThis || res.rows);
+    });
+};
+
+const queueOp = (text, values, isInsert, cb) => {
+    if (isSerialized) {
+        queue.push({ op: executeQuery, args: [text, values, isInsert], cb });
+        processQueue();
+    } else {
+        executeQuery(text, values, isInsert, cb);
+    }
+};
+
+const db = {
+    pool,
+    serialize: (cb) => {
+        isSerialized = true;
+        cb();
+    },
+    all: (sql, params, callback) => {
+        if (typeof params === 'function') { callback = params; params = []; }
+        const { text, values } = convertQuery(sql, params);
+        queueOp(text, values, false, (err, res) => {
+            if (err) return callback && callback(err);
+            if (callback) callback(null, res);
+        });
+    },
+    get: (sql, params, callback) => {
+        if (typeof params === 'function') { callback = params; params = []; }
+        const { text, values } = convertQuery(sql, params);
+        queueOp(text, values, false, (err, res) => {
+            if (err) return callback && callback(err);
+            if (callback) callback(null, res && res.length > 0 ? res[0] : null);
+        });
+    },
+    run: (sql, params, callback) => {
+        if (typeof params === 'function') { callback = params; params = []; }
+        
+        let queryText = sql;
+        const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
+        if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
+            queryText = queryText.replace(/;?\s*$/, ' RETURNING id');
+        }
+
+        const { text, values } = convertQuery(queryText, params);
+        queueOp(text, values, isInsert, (err, fakeThis) => {
+            if (err) return callback && callback(err);
+            if (callback) callback.call(fakeThis || {}, null);
+        });
+    }
+};
+
+db.serialize(() => {
         // Members
         db.run(`CREATE TABLE IF NOT EXISTS members (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             name        TEXT    NOT NULL,
             phone       TEXT    NOT NULL UNIQUE,
             joinDate    TEXT    NOT NULL,
@@ -70,7 +166,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`ALTER TABLE members ADD COLUMN last_ip TEXT`, () => {});
         // Payments
         db.run(`CREATE TABLE IF NOT EXISTS payments (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             memberId    INTEGER NOT NULL,
             amount      REAL NOT NULL,
             paymentDate TEXT NOT NULL,
@@ -84,7 +180,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         
         // Member Ledger (Multi-wallet system)
         db.run(`CREATE TABLE IF NOT EXISTS ledger (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             memberId    INTEGER NOT NULL,
             type        TEXT NOT NULL, -- 'PERSONAL', 'SACCO Savings', etc
             amount      REAL NOT NULL,
@@ -98,7 +194,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         // Fund ledger
         db.run(`ALTER TABLE transactions ADD COLUMN fund TEXT DEFAULT 'General'`, () => {});
         db.run(`CREATE TABLE IF NOT EXISTS transactions (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             type         TEXT NOT NULL CHECK(type IN ('credit','debit')),
             amount       REAL NOT NULL,
             description  TEXT NOT NULL,
@@ -112,7 +208,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Admin users
         db.run(`CREATE TABLE IF NOT EXISTS admin_users (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             username      TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             role          TEXT NOT NULL DEFAULT 'admin',
@@ -139,7 +235,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // SMS log
         db.run(`CREATE TABLE IF NOT EXISTS sms_log (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             type        TEXT NOT NULL,
             recipients  TEXT NOT NULL,
             message     TEXT NOT NULL,
@@ -151,7 +247,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Activity log
         db.run(`CREATE TABLE IF NOT EXISTS activity_log (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             action       TEXT NOT NULL,
             entity       TEXT NOT NULL,
             entity_id    TEXT,
@@ -194,7 +290,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
             };
             const defaultsWithTitle = { title: '', ...defaults };
             for (const [key, value] of Object.entries(defaultsWithTitle)) {
-                db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`, [key, value]);
+                db.run(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING`, [key, value]);
                 // Also update existing if they are still defaults
                 if (key === 'group_name' || key === 'organization_name' || key === 'organization_tagline') {
                     db.run(`UPDATE settings SET value = ? WHERE key = ? AND (value = 'My Chama' OR value = 'CHAMA MANAGEMENT SYSTEM' OR value IS NULL)`, [value, key]);
@@ -208,7 +304,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         // Loans
         db.run(`ALTER TABLE loans ADD COLUMN fundingSource TEXT DEFAULT 'Member Savings'`, () => {});
         db.run(`CREATE TABLE IF NOT EXISTS loans (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             memberId      INTEGER NOT NULL,
             amount        REAL NOT NULL,
             interestRate  REAL NOT NULL DEFAULT 0,
@@ -222,7 +318,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Loan repayments
         db.run(`CREATE TABLE IF NOT EXISTS loan_repayments (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            id        SERIAL PRIMARY KEY,
             loanId    INTEGER NOT NULL,
             amount    REAL NOT NULL,
             paidDate  TEXT NOT NULL,
@@ -232,7 +328,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Loan interest accrual log
         db.run(`CREATE TABLE IF NOT EXISTS loan_interest_log (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             loanId       INTEGER NOT NULL,
             amount       REAL NOT NULL,
             accrualDate  TEXT NOT NULL,
@@ -242,7 +338,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Penalties
         db.run(`CREATE TABLE IF NOT EXISTS penalties (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         SERIAL PRIMARY KEY,
             memberId   INTEGER NOT NULL,
             amount     REAL NOT NULL,
             reason     TEXT NOT NULL,
@@ -254,7 +350,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Target Savings Pots
         db.run(`CREATE TABLE IF NOT EXISTS target_savings (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             memberId      INTEGER NOT NULL,
             name          TEXT NOT NULL,
             targetAmount  REAL NOT NULL,
@@ -267,7 +363,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         
         // Target Savings Ledger
         db.run(`CREATE TABLE IF NOT EXISTS target_savings_ledger (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             potId         INTEGER NOT NULL,
             amount        REAL NOT NULL,
             description   TEXT NOT NULL,
@@ -277,7 +373,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Meetings
         db.run(`CREATE TABLE IF NOT EXISTS meetings (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         SERIAL PRIMARY KEY,
             title      TEXT NOT NULL,
             date       TEXT NOT NULL,
             location   TEXT,
@@ -287,7 +383,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Meeting attendance (unique per meeting+member)
         db.run(`CREATE TABLE IF NOT EXISTS meeting_attendance (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            id        SERIAL PRIMARY KEY,
             meetingId INTEGER NOT NULL,
             memberId  INTEGER NOT NULL,
             attended  INTEGER NOT NULL DEFAULT 0,
@@ -300,7 +396,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Member Documents (KYC)
         db.run(`CREATE TABLE IF NOT EXISTS member_documents (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             memberId     INTEGER NOT NULL,
             documentType TEXT NOT NULL,
             filename     TEXT NOT NULL,
@@ -312,7 +408,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Investments
         db.run(`CREATE TABLE IF NOT EXISTS investments (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            id             SERIAL PRIMARY KEY,
             name           TEXT NOT NULL,
             type           TEXT NOT NULL,
             amountInvested REAL NOT NULL,
@@ -323,7 +419,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Investment valuations history
         db.run(`CREATE TABLE IF NOT EXISTS investment_valuations (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             investmentId INTEGER NOT NULL,
             value        REAL NOT NULL,
             valuationDate TEXT NOT NULL,
@@ -332,7 +428,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Dividends
         db.run(`CREATE TABLE IF NOT EXISTS dividends (
-            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            id                SERIAL PRIMARY KEY,
             distributionDate  TEXT NOT NULL,
             totalPoolAmount   REAL NOT NULL,
             calcMethod        TEXT NOT NULL,
@@ -347,7 +443,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         // Expenses / Budget Tracking
         db.run(`ALTER TABLE expenses ADD COLUMN fundingSource TEXT DEFAULT 'Institutional Reserves'`, () => {});
         db.run(`CREATE TABLE IF NOT EXISTS expenses (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            id               SERIAL PRIMARY KEY,
             category         TEXT NOT NULL,
             amount           REAL NOT NULL,
             description      TEXT NOT NULL,
@@ -375,7 +471,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Member Voting / Polls
         db.run(`CREATE TABLE IF NOT EXISTS polls (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             question    TEXT NOT NULL,
             status      TEXT NOT NULL DEFAULT 'active',
             createdBy   TEXT NOT NULL,
@@ -384,14 +480,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
         )`);
         
         db.run(`CREATE TABLE IF NOT EXISTS poll_options (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             pollId      INTEGER NOT NULL,
             optionText  TEXT NOT NULL,
             FOREIGN KEY (pollId) REFERENCES polls(id) ON DELETE CASCADE
         )`);
 
         db.run(`CREATE TABLE IF NOT EXISTS poll_votes (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             pollId      INTEGER NOT NULL,
             optionId    INTEGER NOT NULL,
             memberId    INTEGER NOT NULL,
@@ -412,7 +508,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Loan interest accrual log
         db.run(`CREATE TABLE IF NOT EXISTS loan_interest_log (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             loanId      INTEGER NOT NULL,
             amount      REAL NOT NULL,
             accrualDate TEXT NOT NULL,
@@ -422,7 +518,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Budget tracking
         db.run(`CREATE TABLE IF NOT EXISTS budgets (
-            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            id             SERIAL PRIMARY KEY,
             category       TEXT NOT NULL,
             budgetedAmount REAL NOT NULL,
             period         TEXT NOT NULL,
@@ -432,7 +528,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Bank reconciliation
         db.run(`CREATE TABLE IF NOT EXISTS bank_statements (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             entryDate     TEXT NOT NULL,
             description   TEXT NOT NULL,
             amount        REAL NOT NULL,
@@ -457,7 +553,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Loan guarantors
         db.run(`CREATE TABLE IF NOT EXISTS loan_guarantors (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            id       SERIAL PRIMARY KEY,
             loanId   INTEGER NOT NULL,
             memberId INTEGER NOT NULL,
             amount   REAL NOT NULL DEFAULT 0,
@@ -469,7 +565,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Contribution tiers
         db.run(`CREATE TABLE IF NOT EXISTS contribution_tiers (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             name          TEXT NOT NULL UNIQUE,
             monthlyTarget REAL NOT NULL,
             color         TEXT NOT NULL DEFAULT '#6366f1'
@@ -481,7 +577,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 ['Platinum', 20000, '#a78bfa'],
             ];
             for (const [name, target, color] of tiers) {
-                db.run(`INSERT OR IGNORE INTO contribution_tiers (name, monthlyTarget, color) VALUES (?, ?, ?)`, [name, target, color]);
+                db.run(`INSERT INTO contribution_tiers (name, monthlyTarget, color) VALUES (?, ?, ?) ON CONFLICT (name) DO NOTHING`, [name, target, color]);
             }
         });
 
@@ -495,7 +591,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Meeting resolutions
         db.run(`CREATE TABLE IF NOT EXISTS meeting_resolutions (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             meetingId    INTEGER NOT NULL,
             resolution   TEXT NOT NULL,
             proposedBy   TEXT,
@@ -506,7 +602,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // AGM resolutions
         db.run(`CREATE TABLE IF NOT EXISTS agm_resolutions (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             meetingId    INTEGER NOT NULL,
             resolution   TEXT NOT NULL,
             proposedBy   TEXT NOT NULL,
@@ -519,7 +615,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Org document vault
         db.run(`CREATE TABLE IF NOT EXISTS org_documents (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             title       TEXT NOT NULL,
             category    TEXT NOT NULL DEFAULT 'Other',
             filename    TEXT NOT NULL,
@@ -542,7 +638,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Session tracking
         db.run(`CREATE TABLE IF NOT EXISTS admin_sessions (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            id        SERIAL PRIMARY KEY,
             adminId   INTEGER NOT NULL,
             token     TEXT NOT NULL,
             ip        TEXT,
@@ -555,7 +651,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Member Session tracking
         db.run(`CREATE TABLE IF NOT EXISTS member_sessions (
-            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            id        SERIAL PRIMARY KEY,
             memberId  INTEGER NOT NULL,
             token     TEXT NOT NULL,
             ip        TEXT,
@@ -570,7 +666,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Scheduled SMS campaigns
         db.run(`CREATE TABLE IF NOT EXISTS sms_campaigns (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             title       TEXT NOT NULL,
             message     TEXT NOT NULL,
             audience    TEXT NOT NULL DEFAULT 'all',
@@ -583,7 +679,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Deletion requests for non-superadmins
         db.run(`CREATE TABLE IF NOT EXISTS delete_requests (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             entityType   TEXT NOT NULL,
             entityId     TEXT NOT NULL,
             requesterId  INTEGER NOT NULL,
@@ -598,7 +694,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Loan Applications (Member initiated)
         db.run(`CREATE TABLE IF NOT EXISTS loan_applications (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             memberId      INTEGER NOT NULL,
             amount        REAL NOT NULL,
             tenure        INTEGER NOT NULL DEFAULT 1,
@@ -613,7 +709,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Pledges (Commitments for grace periods)
         db.run(`CREATE TABLE IF NOT EXISTS pledges (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             memberId     INTEGER NOT NULL,
             pledgeFee    REAL NOT NULL DEFAULT 100,
             targetDate   TEXT NOT NULL,
@@ -639,7 +735,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         });
 
         db.run(`CREATE TABLE IF NOT EXISTS dividend_distributions (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           SERIAL PRIMARY KEY,
             dividendId   INTEGER NOT NULL,
             memberId     INTEGER NOT NULL,
             amount       REAL NOT NULL,
@@ -652,7 +748,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // ── COMMUNICATION HUB ──────────────────────────────────────────
         db.run(`CREATE TABLE IF NOT EXISTS comm_threads (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             memberId    INTEGER NOT NULL,
             subject     TEXT    NOT NULL,
             category    TEXT    NOT NULL DEFAULT 'general',
@@ -665,7 +761,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`ALTER TABLE comm_threads ADD COLUMN category TEXT NOT NULL DEFAULT 'general'`, () => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS comm_messages (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             threadId    INTEGER NOT NULL,
             senderType  TEXT    NOT NULL,
             senderId    INTEGER NOT NULL,
@@ -678,7 +774,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`ALTER TABLE comm_messages ADD COLUMN attachmentUrl TEXT`, () => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS admin_chat (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             adminId     INTEGER NOT NULL,
             senderName  TEXT,
             senderRole  TEXT,
@@ -690,7 +786,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`ALTER TABLE admin_chat ADD COLUMN attachmentUrl TEXT`, () => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS admin_direct_messages (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             senderId      INTEGER NOT NULL,
             receiverId    INTEGER NOT NULL,
             encryptedData TEXT    NOT NULL,
@@ -703,7 +799,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // --- INTELLIGENT NOTIFICATION CENTER ---
         db.run(`CREATE TABLE IF NOT EXISTS notifications (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             userId      INTEGER NOT NULL,
             userType    TEXT    NOT NULL, -- 'admin' or 'member'
             title       TEXT    NOT NULL,
@@ -715,7 +811,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // --- GROUP CHANNELS (SLACK-STYLE) ---
         db.run(`CREATE TABLE IF NOT EXISTS comm_channels (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             name        TEXT    NOT NULL,
             description TEXT,
             createdBy   INTEGER NOT NULL,
@@ -723,7 +819,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         )`);
 
         db.run(`CREATE TABLE IF NOT EXISTS comm_channel_members (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             channelId   INTEGER NOT NULL,
             userId      INTEGER NOT NULL,
             userType    TEXT    NOT NULL, -- 'admin' or 'member'
@@ -733,7 +829,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         )`);
 
         db.run(`CREATE TABLE IF NOT EXISTS comm_channel_messages (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            id            SERIAL PRIMARY KEY,
             channelId     INTEGER NOT NULL,
             senderId      INTEGER NOT NULL,
             senderType    TEXT    NOT NULL, -- 'admin' or 'member'
@@ -746,7 +842,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // --- PORTFOLIO & INVESTMENTS ---
         db.run(`CREATE TABLE IF NOT EXISTS investments (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            id              SERIAL PRIMARY KEY,
             name            TEXT    NOT NULL,
             type            TEXT    NOT NULL,
             amountInvested  REAL    NOT NULL DEFAULT 0,
@@ -758,7 +854,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`ALTER TABLE investments ADD COLUMN notes TEXT DEFAULT ''`, () => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS investment_history (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            id              SERIAL PRIMARY KEY,
             investmentId    INTEGER NOT NULL,
             value           REAL    NOT NULL,
             valuationDate   TEXT    NOT NULL,
@@ -768,7 +864,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // ── PHASE 7: ICT Operational Tables ──────────────────────
         db.run(`CREATE TABLE IF NOT EXISTS settings_audit (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             setting_key TEXT    NOT NULL,
             old_value   TEXT,
             new_value   TEXT,
@@ -780,7 +876,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // Member Notifications
         db.run(`CREATE TABLE IF NOT EXISTS member_notifications (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             memberId    INTEGER NOT NULL,
             title       TEXT NOT NULL,
             message     TEXT NOT NULL,
@@ -808,7 +904,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         // M-Pesa B2C Transactions (Tracking automated disbursements)
         db.run(`CREATE TABLE IF NOT EXISTS mpesa_b2c_transactions (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            id          SERIAL PRIMARY KEY,
             memberId    INTEGER,
             amount      REAL NOT NULL,
             phone       TEXT NOT NULL,
@@ -824,6 +920,5 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
         console.log('Database verification complete.');
     });
-});
 
 module.exports = db;

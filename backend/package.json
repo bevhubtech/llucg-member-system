@@ -28,8 +28,8 @@
     "node-cron": "^4.2.1",
     "otplib": "^13.4.0",
     "pdfkit": "^0.18.0",
-    "qrcode": "^1.5.4",
-    "sqlite3": "5.1.6"
+    "pg": "^8.22.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
