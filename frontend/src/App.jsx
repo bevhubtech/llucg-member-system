@@ -279,6 +279,15 @@ const Layout = ({ children, type = 'admin' }) => {
                     }}
                 />
             )}
+            {/* Fixed hamburger — only visible on mobile when sidebar is CLOSED */}
+            {collapsed && (
+                <button
+                    className="mobile-hamburger-fixed"
+                    onClick={() => setCollapsed(false)}
+                >
+                    <Menu size={22} />
+                </button>
+            )}
             <aside 
                 className={`sidebar ${isVisuallyCollapsed ? 'sidebar-collapsed' : ''}`}
                 onMouseEnter={() => setIsHovered(true)}
@@ -286,7 +295,7 @@ const Layout = ({ children, type = 'admin' }) => {
             >
                 
                 <div className="sidebar-header" style={{ position: 'relative' }}>
-                                        <div className="sidebar-logo" style={{ opacity: isVisuallyCollapsed ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: isVisuallyCollapsed ? 'none' : 'auto' }}>
+                    <div className="sidebar-logo" style={{ opacity: isVisuallyCollapsed ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: isVisuallyCollapsed ? 'none' : 'auto' }}>
                         <div className="brand-logo-container">
                             <img src={logo} className="logo-img" alt="Logo" />
                         </div>
