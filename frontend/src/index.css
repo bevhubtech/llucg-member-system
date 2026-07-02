@@ -86,6 +86,7 @@ body {
 .sidebar {
   width: var(--sidebar-width);
   height: 100vh;
+  height: 100dvh; /* dynamic viewport — accounts for mobile browser bars */
   background: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
   display: flex;
@@ -95,6 +96,7 @@ body {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
   flex-shrink: 0;
+  overflow: hidden; /* prevent any child from bleeding out */
 }
 
 .sidebar-collapsed {
@@ -707,8 +709,9 @@ tr:hover td { background: var(--surface-2); }
     position: fixed;
     left: 0;
     top: 0;
-    bottom: 0;
     width: 280px;
+    height: 100vh;
+    height: 100dvh; /* fills full mobile screen including behind browser bars */
     transform: translateX(-100%);
     box-shadow: 20px 0 50px rgba(0,0,0,0.5);
     visibility: hidden;
