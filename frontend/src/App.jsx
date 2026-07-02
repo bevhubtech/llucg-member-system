@@ -279,15 +279,7 @@ const Layout = ({ children, type = 'admin' }) => {
                     }}
                 />
             )}
-            {/* Fixed hamburger — only visible on mobile when sidebar is CLOSED */}
-            {collapsed && (
-                <button
-                    className="mobile-hamburger-fixed"
-                    onClick={() => setCollapsed(false)}
-                >
-                    <Menu size={22} />
-                </button>
-            )}
+
             <aside 
                 className={`sidebar ${isVisuallyCollapsed ? 'sidebar-collapsed' : ''}`}
                 onMouseEnter={() => setIsHovered(true)}

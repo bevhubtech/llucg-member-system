@@ -772,23 +772,8 @@ tr:hover td { background: var(--surface-2); }
   /* Mobile bottom nav style for member portal if desired, 
      but for now we focus on fixing the sidebar layout */
   
-  /* On mobile: hamburger stays INSIDE the sidebar header on the right,
-     so the logo/org name on the left is fully visible */
-  .hamburger-btn {
-    position: relative !important;
-    top: auto !important;
-    left: auto !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 4px !important;
-    border-radius: 8px !important;
-    display: flex !important;
-  }
-
-  /* Float-fixed hamburger used OUTSIDE the sidebar (before open) */
-  .mobile-hamburger-fixed {
-    display: flex !important;
+  /* When sidebar is CLOSED on mobile: hamburger floats fixed at top-left */
+  .sidebar-collapsed .hamburger-btn {
     position: fixed !important;
     top: 1rem;
     left: 1rem;
@@ -798,10 +783,21 @@ tr:hover td { background: var(--surface-2); }
     padding: 8px !important;
     border-radius: 12px !important;
     box-shadow: var(--shadow-md);
+    display: flex !important;
   }
 
-  .sidebar-collapsed .hamburger-btn {
-    left: auto;
+  /* When sidebar is OPEN on mobile: hamburger sits inside the header on the right */
+  .sidebar:not(.sidebar-collapsed) .hamburger-btn {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 4px !important;
+    display: flex !important;
   }
 }
 
